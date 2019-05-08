@@ -1,5 +1,5 @@
 use {
-    irc::{client::prelude::*},
+    irc::client::prelude::*,
     markov::Chain,
     std::{collections::HashMap, error::Error, fs::File},
 };
@@ -64,14 +64,14 @@ fn read_gen(file: &str) -> Fallible<()> {
     Ok(())
 }
 
-const PREFIX : &'static str = "!charlie";
+const PREFIX: &'static str = "!charlie";
 
 fn parse_irc_cmd<'a>(msg: &'a Message) -> Option<&'a str> {
     match msg.command {
         Command::PRIVMSG(ref _tgt, ref line) if line.starts_with(PREFIX) => {
             let rest = &line[PREFIX.len()..].trim();
             Some(rest)
-        },
+        }
         _ => None,
     }
 }
@@ -81,7 +81,10 @@ fn serve() -> Fallible<()> {
         let r = std::io::BufReader::new(File::open("chains.bin")?);
         bincode::deserialize_from(r)?
     };
-    println!("known nicks: {:?}", chains.0.iter().map(|x| x.0).collect::<Vec<_>>());
+    println!(
+        "known nicks: {:?}",
+        chains.0.iter().map(|x| x.0).collect::<Vec<_>>()
+    );
 
     let config = Config {
         nickname: Some("charliebot".to_string()),
@@ -95,26 +98,34 @@ fn serve() -> Fallible<()> {
     let client = IrcClient::from_config(config).map_err(|e| e.to_string())?;
     client.identify().map_err(|e| e.to_string())?;
 
-    client.for_each_incoming(|message| {
-        print!("{}", message);
-        if let Some(nick) = parse_irc_cmd(&message) {            
-            let nick = log_parse::normalize_nick(nick);
-            println!(">>> irc command detected for {:?}", &nick);
-            if let Some(chain) = chains.find_nick(&nick) {
-                let reply_to = {
-                    let r = message.response_target();
-                    if r.is_none() { return } else { r.unwrap() }
-                };
-                // try to find a reply of adequate length
-                let reply =
-                    chain.str_iter().take(500)
-                    .skip_while(|s| s.len() < 20 || s.len() > 100)
-                    .next().unwrap_or_else(|| "oh noes :(".to_string());
-                println!(">>> reply {}", &reply);
-                client.send_privmsg(reply_to, reply).unwrap();
+    client
+        .for_each_incoming(|message| {
+            print!("{}", message);
+            if let Some(nick) = parse_irc_cmd(&message) {
+                let nick = log_parse::normalize_nick(nick);
+                println!(">>> irc command detected for {:?}", &nick);
+                if let Some(chain) = chains.find_nick(&nick) {
+                    let reply_to = {
+                        let r = message.response_target();
+                        if r.is_none() {
+                            return;
+                        } else {
+                            r.unwrap()
+                        }
+                    };
+                    // try to find a reply of adequate length
+                    let reply = chain
+                        .str_iter()
+                        .take(500)
+                        .skip_while(|s| s.len() < 20 || s.len() > 100)
+                        .next()
+                        .unwrap_or_else(|| "oh noes :(".to_string());
+                    println!(">>> reply {}", &reply);
+                    client.send_privmsg(reply_to, reply).unwrap();
+                }
             }
-        }
-    }).map_err(|e| e.to_string())?;
+        })
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }
