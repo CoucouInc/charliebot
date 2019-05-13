@@ -183,7 +183,7 @@ fn serve(data_dir: &path::Path) -> Fallible<()> {
         nickname: Some("charliebot".to_string()),
         server: Some("chat.freenode.org".to_string()),
         port: Some(7000),
-        channels: None, //Some(vec!["#arch-fr-free".to_string()]),
+        channels: Some(vec!["#arch-fr-free".to_string()]),
         use_ssl: Some(true),
         ..Config::default()
     };
